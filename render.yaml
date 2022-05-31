@@ -1,13 +1,9 @@
-databases:
-  - name: GaiaGate-Main
-    databaseName: gaiagate_main
-    user: gaiagate_main_user
+
 
 services:
   - type: web
     name: mysite
     env: python
-    buildCommand: "./build.sh"
     startCommand: "gunicorn gaiagate.wsgi:application"
     envVars:
       - key: DATABASE_URL

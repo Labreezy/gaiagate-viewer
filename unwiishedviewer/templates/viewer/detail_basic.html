@@ -1,0 +1,11 @@
+{%  extends "viewer/base.html" %}
+{% load static  %}
+{% block title %}Unwiished Collision Viewer{% endblock %}
+{% block main %}
+<h2>{{ object }}</h2>
+{% for fpath in files %}
+    <li>{{  fpath  }}</li>
+    {% empty %}
+    <p>no bitches :(</p>
+{% endfor %}
+{% endblock %}

@@ -1,0 +1,11 @@
+{% extends "viewer/base.html" %}
+{% load static %}
+
+{% block title %}Stage Select{% endblock %}
+
+{% block main %}
+    <h2>Stages</h2>
+    {% for stg in object_list %}
+        <li><a href="{% url 'stageviewer' stg.id %}">{{ stg }}</a></li>
+    {% endfor %}
+{% endblock %}

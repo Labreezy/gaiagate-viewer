@@ -1,0 +1,396 @@
+{%  extends "viewer/base.html" %}
+{% load static  %}
+
+{% block title %}Unwiished 3D Level Viewer{% endblock %}
+{% block style %}
+<style>
+html, body {
+    margin: 0;
+    height: 100%;
+}
+#c {
+    width: 80%;
+    height: 80%;
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+}
+    </style>
+{% endblock %}
+{% block main %}
+
+    <h2>Stage: {{ object }}</h2>
+    <h3><a href="{% url 'stagelist' %}">Back To List</a></h3>
+    <p>Last Double-Click Coordinates: (<span id="x"></span>, <span id="y"></span>, <span id="z"></span>)</p>
+    <p>Last Selected Box Params <span id="paramid"></span></p>
+    <p>Last Selected Box Header Bytes: <span id="headerinfoid"></span></p>
+    <hr/>
+    <div id="boxposgroup">
+    <label for="xpos">X:</label>
+    <input id="xpos" type="number" placeholder="X Position" step="0.01" value="0.0">
+    <label for="ypos">Y:</label>
+    <input id="ypos" type="number" placeholder="Y Position" step="0.01" value="0.0">
+    <label for="zpos">Z:</label>
+    <input id="zpos" type="number" placeholder="Z Position" step="0.01" value="0.0">
+    </div>
+    <br/>
+    <div id="boxscalegroup">
+    <label for="xscale">X:</label>
+    <input id="xscale" type="number" placeholder="X Scale" step="0.01" value="1.0" min="0.0">
+    <label for="yscale">Y:</label>
+    <input id="yscale" type="number" placeholder="Y Scale" step="0.01" value="1.0" min="0.0">
+    <label for="zscale">Z:</label>
+    <input id="zscale" type="number" placeholder="Z Scale" step="0.01" value="1.0">
+    </div>
+    <br/>
+    <div id="boxrotgroup">
+    <label for="xrot">X:</label>
+    <input id="xrot" type="number" placeholder="X" step="0.01" value="0.0">
+    <label for="yrot">Y:</label>
+    <input id="yrot" type="number" placeholder="Y" step="0.01" value="0.0">
+    <label for="zrot">Z:</label>
+    <input id="zrot" type="number" placeholder="Z" step="0.01" value="0.0">
+    <label for="wrot">W:</label>
+    <input id="wrot" type="number" placeholder="W" step="0.01" value="1.0">
+    </div>
+    <small>The above is a <a href="https://en.wikipedia.org/wiki/Quaternion">quaternion</a>.  It makes 3D rotation math very easy, and it's how the game stores rotations.</small>
+    <br/>
+    <small>Confused? Keep the default on + skill issue + you didn't click the link + you haven't opened a .set file + L + ratio</small>
+    <button id="boxbutton">Draw Box</button>
+    <canvas id="c"></canvas>
+{% endblock %}
+{% block three %}
+{{ block.super }}
+{% endblock %}
+{% block extrascript %}
+    <script type="text/javascript">
+   let trigger_data = {{ triggers|safe }}
+
+    </script>
+        <script type="module">
+        import * as THREE from 'three';
+        import {OrbitControls} from 'https://threejs.org/examples/jsm/controls/OrbitControls.js';
+        import {OBJLoader} from 'https://threejs.org/examples/jsm/loaders/OBJLoader.js';
+        import {MTLLoader} from 'https://threejs.org/examples/jsm/loaders/MTLLoader.js';
+        const raycaster = new THREE.Raycaster();
+        const pointer = new THREE.Vector2();
+        let scene, camera, renderer, controls;
+        let canvaselement = document.querySelector("#c");
+        let formused = false;
+        let boxmat = new THREE.MeshLambertMaterial({color:0x00ffff,opacity:.4});
+        let cube = new THREE.Mesh(new THREE.BoxGeometry(), boxmat);
+
+
+
+
+        function addsquare(accumulator, a){
+            return accumulator + (a*a);
+        }
+
+         function drawTriggers(){
+        let scene_children_justobjects = scene.children;
+
+        scene_children_justobjects = scene_children_justobjects.filter(obj => obj.type == 'Group' || obj.type=='Object3D');
+        console.log(scene_children_justobjects);
+        let bbox = new THREE.Box3().setFromObject(scene_children_justobjects);
+
+
+        for(const trigger of trigger_data){
+            const positions = trigger.position;
+            const positions_vec = new THREE.Vector3(...positions);
+            console.log(positions_vec)
+            if(!bbox.containsPoint(positions_vec)){
+                continue;
+            }
+            const rotation = trigger.rotation;
+            const trigger_params = trigger.params;
+            console.log("Number of parameters: " + trigger_params.length);
+            console.log(trigger_params);
+            let scale = [1.0,1.0,1.0];
+            if(trigger_params.length >=6){
+
+                    scale = [trigger_params[3], trigger_params[4], trigger_params[5]];
+                    scale = scale.map(n => 2*n);
+
+            }
+            const geom = new THREE.BoxGeometry(...scale);
+            const qnorm = rotation.reduce(addsquare, 0);
+            const n_rotations = rotation.map(n => n/qnorm);
+            //normalize the rotatey thing
+            const n_quaternion =  new THREE.Quaternion(...n_rotations);
+            cube = new THREE.Mesh(geom, boxmat);
+            trigger_uuids.push({uuid: cube.uuid, params: trigger_params, headerinfo: trigger.headerinfo});
+            cube.position.set(...positions);
+            cube.rotation.setFromQuaternion(n_quaternion, 'XYZ');
+
+
+            scene.add(cube);
+            console.log(cube);
+            requestAnimationFrame(render);
+            render();
+            controls.update();
+
+        }
+
+    }
+
+
+        function showobjects(objfilelist, mtllib) {
+          for(const fn of objfilelist){
+            console.log(fn);
+          }
+          const canvas = document.querySelector('#c');
+          renderer = new THREE.WebGLRenderer({canvas});
+          renderer.outputEncoding = THREE.sRGBEncoding;
+
+          const fov = 45;
+          const aspect = 2;  // the canvas default
+          const near = 0.1;
+          const far = 1000;
+          camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
+          camera.position.set(0, 10, 20);
+
+          controls = new OrbitControls(camera, canvas);
+          controls.target.set(0, 5, 0);
+          controls.update();
+
+          scene = new THREE.Scene();
+          scene.background = new THREE.Color('black');
+
+
+
+          {
+            const skyColor = 0xB1E1FF;  // light blue
+            const groundColor = 0xB97A20;  // brownish orange
+            const intensity = 0.6;
+            const light = new THREE.HemisphereLight(skyColor, groundColor, intensity);
+            scene.add(light);
+          }
+
+          {
+            const color = 0xFFFFFF;
+            const intensity = 0.8;
+            const light = new THREE.DirectionalLight(color, intensity);
+            light.position.set(0, 10, 0);
+            light.target.position.set(-5, 0, 0);
+            scene.add(light);
+            scene.add(light.target);
+          }
+
+          function frameArea(sizeToFitOnScreen, boxSize, boxCenter, camera) {
+          const halfSizeToFitOnScreen = sizeToFitOnScreen * 0.5;
+          const halfFovY = THREE.MathUtils.degToRad(camera.fov * .5);
+          const distance = halfSizeToFitOnScreen / Math.tan(halfFovY);
+
+          // compute a unit vector that points in the direction the camera is now
+          // from the center of the box
+          const direction = (new THREE.Vector3()).subVectors(camera.position, boxCenter).normalize();
+
+          // move the camera to a position distance units way from the center
+          // in whatever direction the camera was from the center already
+          camera.position.copy(direction.multiplyScalar(distance).add(boxCenter));
+
+          // pick some near and far values for the frustum that
+          // will contain the box.
+          camera.near = boxSize / 100;
+          camera.far = boxSize * 100;
+
+          camera.updateProjectionMatrix();
+
+          // point the camera to look at the center of the box
+          camera.lookAt(boxCenter.x, boxCenter.y, boxCenter.z);
+        }
+
+          {
+
+            const objLoader = new OBJLoader();
+            const mtlLoader = new MTLLoader();
+
+            var index = 0;
+            function loadNextObj() {
+                if (index > objfilelist.length - 1) return;
+                mtlLoader.load(mtllib, (mtl) => {
+                    mtl.preload();
+                    for (const material of Object.values(mtl.materials)) {
+                        material.side = THREE.DoubleSide;
+                    }
+
+                objLoader.setMaterials(mtl);
+                    });
+                objLoader.load(objfilelist[index], function (root) {
+                    scene.add(root);
+                    index++;
+                    if (index > objfilelist.length - 1) {
+                        const box = new THREE.Box3().setFromObject(root);
+
+                        const boxSize = box.getSize(new THREE.Vector3()).length();
+                        const boxCenter = box.getCenter(new THREE.Vector3());
+
+                        // set the camera to frame the box
+                        frameArea(boxSize * 1.2, boxSize, boxCenter, camera);
+
+                        // update the Trackball controls to handle the new size
+                        controls.maxDistance = boxSize * 10;
+                        controls.target.copy(boxCenter);
+                        controls.update();
+                    }
+                    loadNextObj();
+                });
+
+            }
+
+            loadNextObj();
+
+          }
+
+          function resizeRendererToDisplaySize(renderer) {
+            const canvas = renderer.domElement;
+            const width = canvas.clientWidth;
+            const height = canvas.clientHeight;
+            const needResize = canvas.width !== width || canvas.height !== height;
+            if (needResize) {
+              renderer.setSize(width, height, false);
+            }
+            return needResize;
+          }
+
+          function frameArea(sizeToFitOnScreen, boxSize, boxCenter, camera) {
+          const halfSizeToFitOnScreen = sizeToFitOnScreen * 0.5;
+            const halfFovY = THREE.MathUtils.degToRad(camera.fov * .5);
+          const distance = halfSizeToFitOnScreen / Math.tan(halfFovY);
+
+          // compute a unit vector that points in the direction the camera is now
+          // from the center of the box
+          const direction = (new THREE.Vector3()).subVectors(camera.position, boxCenter).normalize();
+
+          // move the camera to a position distance units way from the center
+          // in whatever direction the camera was from the center already
+          camera.position.copy(direction.multiplyScalar(distance).add(boxCenter));
+
+          // pick some near and far values for the frustum that
+          // will contain the box.
+          camera.near = boxSize / 100;
+          camera.far = boxSize * 100;
+
+          camera.updateProjectionMatrix();
+
+          // point the camera to look at the center of the box
+          camera.lookAt(boxCenter.x, boxCenter.y, boxCenter.z);
+        }
+
+
+          function render() {
+
+            if (resizeRendererToDisplaySize(renderer)) {
+              const canvas = renderer.domElement;
+              camera.aspect = canvas.clientWidth / canvas.clientHeight;
+              camera.updateProjectionMatrix();
+            }
+
+            renderer.render(scene, camera);
+
+            requestAnimationFrame(render);
+          }
+
+          requestAnimationFrame(render);
+
+        }
+
+
+
+            const mtl_location = "{% static 'obj/mtllib.mtl' %}"
+            const obj_arr = [];
+            console.log({{ STATIC_PREFIX }});
+
+                {% for fn in files  %}
+                 obj_arr.push("{% get_static_prefix %}{{ fn }}");
+                {% endfor %}
+
+            console.log(obj_arr);
+
+            showobjects(obj_arr, mtl_location);
+            const trigger_uuids = [];
+         function canvas_onClick( event ) {
+
+	// calculate pointer position in normalized device coordinates
+	// (-1 to +1) for both components
+
+    const canvasrect = canvaselement.getBoundingClientRect();
+   if (event.clientX >= canvasrect.left && event.clientX <= canvasrect.right &&
+      event.clientY >= canvasrect.top && event.clientY <= canvasrect.bottom) {
+       let rel_x = event.clientX - canvasrect.left;
+       let rel_y = event.clientY - canvasrect.top;
+        pointer.x = ( rel_x / canvaselement.clientWidth ) * 2 - 1;
+	pointer.y = - ( rel_y / canvaselement.clientHeight ) * 2 + 1;
+        }
+
+             raycaster.setFromCamera(pointer, camera);
+
+            const intersects = raycaster.intersectObjects(scene.children);
+            if(intersects.length > 0) {
+                intersects.sort(function (a, b) {
+                    return a.distance - b.distance;
+                });
+                const intersect_uuid = intersects[0]['object'].uuid;
+                console.log(intersect_uuid)
+                let trigger_maybe = trigger_uuids.find(obj => {
+                    return obj.uuid == intersect_uuid;
+                });
+                if(trigger_maybe != undefined){
+                    console.log(trigger_maybe);
+                    const paramspan = document.querySelector("#paramid");
+                    paramspan.textContent = trigger_maybe.params;
+                    const hinfospan = document.querySelector("#headerinfoid");
+                    hinfospan.textContent = trigger_maybe.headerinfo;
+                }
+                const pt = intersects[0].point
+                const xspan = document.querySelector("#x");
+                xspan.textContent = pt.x;
+                const yspan = document.querySelector("#y");
+                yspan.textContent = pt.y;
+                const zspan = document.querySelector("#z");
+                zspan.textContent = pt.z;
+
+            }
+    }
+
+
+          function render() {
+
+            renderer.render(scene, camera);
+
+            requestAnimationFrame(render);
+            controls.update();
+          }
+
+   function drawBoxFromInput(){
+            const positions = Array.from(document.querySelectorAll("#boxposgroup > input")).map(el => el.value);
+            const scalefactors = Array.from(document.querySelectorAll("#boxscalegroup > input")).map(el => el.value);
+            const rotations = Array.from(document.querySelectorAll("#boxrotgroup > input")).map(el => el.value);
+            const geom = new THREE.BoxGeometry(...scalefactors);
+
+
+            const qnorm = rotations.reduce(addsquare, 0);
+            const n_rotations = rotations.map(n => n/qnorm);
+            //normalize the rotatey thing
+            const n_quaternion =  new THREE.Quaternion(...n_rotations);
+
+            cube = new THREE.Mesh(geom, boxmat);
+            cube.position.set(...positions);
+            cube.rotation.setFromQuaternion(n_quaternion, 'XYZ');
+
+
+            scene.add(cube);
+            console.log(cube);
+            requestAnimationFrame(render);
+            render();
+            controls.update();
+
+        }
+
+ drawTriggers();
+        canvaselement.ondblclick = canvas_onClick;
+         const drawbox_btn = document.querySelector("#boxbutton");
+         drawbox_btn.onclick = drawBoxFromInput;
+        </script>
+{% endblock %}

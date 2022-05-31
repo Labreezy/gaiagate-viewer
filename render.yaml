@@ -1,4 +1,7 @@
-
+databases:
+  - name: GaiaGate-Main
+    databaseName: gaiagate_main
+    user: gaiagate_main_user
 
 services:
   - type: web

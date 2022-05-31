@@ -5,7 +5,7 @@ databases:
 
 services:
   - type: web
-    name: mysite
+    name: gaiagate
     env: python
     startCommand: "gunicorn gaiagate.wsgi:application"
     envVars:

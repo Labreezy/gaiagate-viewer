@@ -88,18 +88,23 @@ html, body {
         }
 
          function drawTriggers(){
-        let scene_children_justobjects = scene.children;
+            console.log(trigger_data.length);
 
-        scene_children_justobjects = scene_children_justobjects.filter(obj => obj.type == 'Group' || obj.type=='Object3D');
-        console.log(scene_children_justobjects);
-        let bbox = new THREE.Box3().setFromObject(scene_children_justobjects);
+        let bbox = new THREE.Box3();
+        let bbox_obj = new THREE.Object3D();
+        bbox_obj.children = scene.children.filter(o => !o.isLight);
+        bbox = bbox.setFromObject(bbox_obj);
 
 
+
+        console.log(bbox.max);
         for(const trigger of trigger_data){
+
             const positions = trigger.position;
             const positions_vec = new THREE.Vector3(...positions);
-            console.log(positions_vec)
+
             if(!bbox.containsPoint(positions_vec)){
+                //console.log(positions_vec);
                 continue;
             }
             const rotation = trigger.rotation;
@@ -125,6 +130,7 @@ html, body {
 
 
             scene.add(cube);
+            bbox.expandByObject(cube);
             console.log(cube);
             requestAnimationFrame(render);
             render();
@@ -208,7 +214,10 @@ html, body {
 
             var index = 0;
             function loadNextObj() {
-                if (index > objfilelist.length - 1) return;
+                if (index > objfilelist.length - 1) {
+                    drawTriggers();
+                    return;
+                }
                 mtlLoader.load(mtllib, (mtl) => {
                     mtl.preload();
                     for (const material of Object.values(mtl.materials)) {
@@ -388,7 +397,7 @@ html, body {
 
         }
 
- drawTriggers();
+        drawTriggers();
         canvaselement.ondblclick = canvas_onClick;
          const drawbox_btn = document.querySelector("#boxbutton");
          drawbox_btn.onclick = drawBoxFromInput;

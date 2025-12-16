@@ -85,7 +85,11 @@ DATABASES = {
     'default': dj_database_url.config(default='postgresql://postgres:QDijabc9@localhost:5432/gaiagatemain')
 
     }
-
+if DEBUG:
+    DATABASES['default'] = {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": BASE_DIR / 'db.sqlite3'
+    }
 
 
 # Password validation
@@ -134,6 +138,6 @@ STATICFILES_DIRS = [osp.join(BASE_DIR,'unwiishedviewer/static')]
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-db_from_env = dj_database_url.config(conn_max_age=600)
+db_from_env = dj_database_url.config(conn_max_age=600,default='sqlite:///db.sqlite3')
 
 DATABASES['default'].update(db_from_env)

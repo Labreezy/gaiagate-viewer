@@ -26,9 +26,9 @@ LOCAL_OBJ_DIR = osp.join(BASE_DIR,'obj')
 SECRET_KEY = ''
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = 'RENDER' not in os.environ
+DEBUG = False
 
-ALLOWED_HOSTS = ['.ngrok.io','localhost','127.0.0.1']
+ALLOWED_HOSTS = ['.ngrok.io','localhost','127.0.0.1',".onrender.com"]
 
 RENDER_EXTERNAL_HOSTNAME = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
 if RENDER_EXTERNAL_HOSTNAME:
